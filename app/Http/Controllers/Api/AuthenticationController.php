@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
+use Mail;
+use App\Mail\NewUserVerifyEmail;
 
 class AuthenticationController extends Controller
 {
@@ -68,44 +70,94 @@ class AuthenticationController extends Controller
      * Register a new user with role-based control.
      */
     public function register(Request $request)
-    {
-        $authUser = Auth::user();
-        $selected_role = $request->role ?? 'customer';
+{
+    $authUser = Auth::user();
+    $selected_role = $request->role ?? 'customer';
 
-        $validator = Validator::make($request->only('name', 'email', 'password'), [
-            'name' => 'required|unique:users',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|min:6',
-        ]);
+    // ✅ Remove "unique:users" from 'name'
+    $validator = Validator::make($request->only('name', 'email', 'password'), [
+        'name'     => 'required|string|max:255',
+        'email'    => 'required|email|unique:users',
+        'password' => 'required|min:6',
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->messages()], 422);
-        }
-
-        if ($selected_role === 'admin' && (!$authUser || !$authUser->hasRole('admin'))) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Only admins can create admin users.'
-            ], 403);
-        }
-
-        $user = User::create([
-            'name'       => $request->name,
-            'email'      => $request->email,
-            'password'   => Hash::make($request->password),
-            'status'     => $request->status ?? 1,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $user->assignRole($selected_role);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'User registered successfully.',
-            'user'    => $user,
-        ], 201);
+    if ($validator->fails()) {
+        return response()->json(['success' => false, 'errors' => $validator->messages()], 422);
     }
+
+    // ✅ Only admins can create admin users
+    if ($selected_role === 'admin' && (!$authUser || !$authUser->hasRole('admin'))) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Only admins can create admin users.'
+        ], 403);
+    }
+
+    $user = User::create([
+        'name'       => $request->name,
+        'email'      => $request->email,
+        'password'   => Hash::make($request->password),
+        'status'     => $request->status ?? 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $user->assignRole($selected_role);
+
+     // ✅ Save frontend URL temporarily (optional, if you want to use it later)
+    $frontendUrl = $request->input('frontend_url', config('app.frontend_url', 'http://localhost:3000'));
+
+    // Generate verification link
+    $token = base64_encode($user->email . '|' . now()->timestamp);
+    $verificationUrl = url("/api/v1/verify-email?token=" . urlencode($token) . "&redirect=" . urlencode($frontendUrl));
+
+    // Send email
+    Mail::to($user->email)->queue(new \App\Mail\NewUserVerifyEmail($user, $verificationUrl));
+
+    return response()->json([
+        'success' => true,
+        'message' => 'User registered successfully.',
+        'user'    => $user,
+    ], 201);
+}
+
+
+public function verifyEmail(Request $request)
+{
+    $token = $request->query('token');
+    $redirectUrl = $request->query('redirect'); // ✅ frontend base URL
+
+    // Default fallback if missing
+    $frontendUrl = $redirectUrl ?? config('app.frontend_url', 'http://localhost:3000');
+
+    if (!$token) {
+        return redirect()->away($frontendUrl . '/login?status=error&message=Invalid+or+missing+verification+token');
+    }
+
+    try {
+        $decoded = base64_decode($token);
+        [$email, $timestamp] = explode('|', $decoded);
+
+        $user = \App\Models\User::where('email', $email)->first();
+
+        if (!$user) {
+            return redirect()->away($frontendUrl . '/login?status=error&message=User+not+found');
+        }
+
+        if ($user->email_verified_at) {
+            return redirect()->away($frontendUrl . '/login?status=success&message=Your+email+is+already+verified');
+        }
+
+        $user->email_verified_at = now();
+        $user->save();
+
+        return redirect()->away($frontendUrl . '/login?status=success&message=Email+verified+successfully');
+    } catch (\Exception $e) {
+        return redirect()->away($frontendUrl . '/login?status=error&message=Invalid+verification+token');
+    }
+}
+
+
 
     /**
      * Get users by role (admin only).

@@ -16,6 +16,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
 
+use Filament\Forms\Components\CheckboxList;
+
 class RoleResource extends Resource
 {
     protected static ?string $model = Role::class;
@@ -27,21 +29,22 @@ class RoleResource extends Resource
     protected static ?string $pluralLabel = 'Roles';
 
     public static function form(Form $form): Form
-    {
-        return $form->schema([
-            TextInput::make('name')
-                ->required()
-                ->unique(ignoreRecord: true)
-                ->maxLength(255),
+{
+    return $form->schema([
+        TextInput::make('name')
+            ->required()
+            ->unique(ignoreRecord: true)
+            ->maxLength(255),
 
-            Select::make('permissions')
-                ->label('Assign Permissions')
-                ->multiple()
-                ->relationship('permissions', 'name')
-                ->preload()
-                ->searchable(),
-        ]);
-    }
+        CheckboxList::make('permissions')
+            ->label('Assign Permissions')
+            ->relationship('permissions', 'name')
+            ->searchable()
+            ->columns(3)
+            ->bulkToggleable()
+            ->helperText('Select permissions for this role'),
+    ]);
+}
 
     public static function table(Table $table): Table
     {

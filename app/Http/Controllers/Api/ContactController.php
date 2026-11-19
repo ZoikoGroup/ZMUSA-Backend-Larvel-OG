@@ -11,36 +11,41 @@ use Mail;
 class ContactController extends Controller
 {
     public function ContactusPost(Request $request)
-    {
-        $this->validate($request, [
-            'name' => 'required',
-            'email' => 'required|email',
-            'phone' => 'required',
-            'message' => 'required'
-        ]);
+{
+    // Validate request data
+    $this->validate($request, [
+        'name' => 'required',
+        'email' => 'required|email',
+        'phone' => 'required',
+        'message' => 'required'
+    ]);
 
-        Contact::create($request->all());
-        Mail::send(
-            'emails/contact-email',
-            array(
-                'name' => $request->get('name'),
-                'email' => $request->get('email'),
-                'phone' => $request->get('phone'),
-                'user_message' => $request->get('message')
-            ),
-            function ($message) {
-                $message->from('lokesh.kumar.wh@gmail.com');
-                $message->to('lokesh@euronoxxgroup.com', 'Admin')->subject('Contact Us Message');
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Thanks for contacting us.',
-                    $message,
-                ], 200);
-            }
-        );
+    // Save contact form data to database
+    Contact::create($request->all());
 
+    // Prepare email data
+    $data = [
+        'name' => $request->get('name'),
+        'email' => $request->get('email'),
+        'phone' => $request->get('phone'),
+        'user_message' => $request->get('message')
+    ];
 
-    }
+    // Send mail to admin and user
+    Mail::send('emails.contact-email', $data, function ($message) use ($request) {
+        $message->from('info@zoikomobile.com', 'Zoiko Group');
+        $message->to('info@zoikomobile.com', 'Admin')
+                ->cc($request->get('email')) // Send a copy to the user
+                ->subject('Contact Us Message');
+    });
+
+    // Return success response
+    return response()->json([
+        'success' => true,
+        'message' => 'Thanks for contacting us. Your message has been sent successfully!'
+    ], 200);
+}
+
 
     public function get_messages()
     {

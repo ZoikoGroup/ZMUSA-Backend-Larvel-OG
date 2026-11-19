@@ -34,6 +34,40 @@ class ProductController extends Controller
         ]);
     }
 
+    public function productsByCategory($categoryId)
+    {
+        // Fetch products where product_category_id matches
+        $products = Product::where('product_category_id', $categoryId)->get();
+
+        return response()->json([
+            'products' => [
+                'products' => $products
+            ],
+        ], 200);
+    }
+
+    public function productBySlug($slug)
+    {
+        // Fetch product by slug with relationships
+        $product = Product::where('slug', $slug)
+            //->with(['variants', 'productCategory', 'discountType', 'productAttributes'])
+            ->first();
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'product' => $product,
+        ], 200);
+    }
+
+
+
 
     /**
      * Store a newly created resource in storage.

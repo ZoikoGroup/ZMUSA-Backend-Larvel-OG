@@ -26,6 +26,24 @@ use App\Http\Controllers\Api\MenuController;
 use App\Http\Controllers\Api\MenuItemController;
 use App\Http\Controllers\Api\PlansController;
 use App\Http\Controllers\Api\PlanTypeController;
+use App\Http\Controllers\Api\CouponController;
+use App\Http\Controllers\Api\BqOrderController;
+use App\Http\Controllers\Api\AnimalPartnershipController;
+use App\Http\Controllers\Api\SwitchSaveController;
+use App\Http\Controllers\Api\PostalServiceWorkerController;
+use App\Http\Controllers\Api\AnimalWorkerRegistrationController;
+use App\Http\Controllers\Api\SubscriberController;
+use App\Http\Controllers\Api\CustomerCardController;
+use App\Http\Controllers\Api\PartnerWithUsFormController;
+use App\Http\Controllers\Api\BecomeAffiliateFormController;
+use App\Http\Controllers\Api\BecomeRetailerFormController;
+use App\Http\Controllers\Api\StudentDiscountFormController;
+use App\Http\Controllers\Api\MilitaryDiscountFormController;
+use App\Http\Controllers\Api\BlackFridayFormController;
+use App\Http\Controllers\Api\MusicHubController;
+use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\StripeWebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -60,6 +78,7 @@ Route::delete('/delete/contact/entry/{id}', [ContactController::class, 'destroy'
 Route::group(['namespace' => 'api', 'prefix' => 'v1'], function () {
     Route::post('login', [AuthenticationController::class, 'store']);
     Route::post('register', [AuthenticationController::class, 'register']);
+    Route::get('/verify-email', [AuthenticationController::class, 'verifyEmail']);
     Route::get('users', [AuthenticationController::class, 'get_all_users'])->middleware('auth:api');
     Route::get('user/{id}', [AuthenticationController::class, 'show'])->middleware('auth:api');
     Route::post('user/update/{id}', [AuthenticationController::class, 'update_user'])->middleware('auth:api');
@@ -68,13 +87,22 @@ Route::group(['namespace' => 'api', 'prefix' => 'v1'], function () {
 
     Route::post('password/email', [ForgotPasswordController::class, '__invoke']);
     Route::post('password/code/check', [CodeCheckController::class, '__invoke']);
-    Route::post('password/reset', [ResetPasswordController::class, '__invoke'])->middleware('auth:api');
+    Route::post('password/reset', [ResetPasswordController::class, '__invoke']);
 
     // User Address
     Route::post('address/create', [UserAddressController::class, 'store'])->middleware('auth:api');
     Route::post('address/update/{id}', [UserAddressController::class, 'update'])->middleware('auth:api');
     Route::get('addresses/user/{id}', [UserAddressController::class, 'show'])->middleware('auth:api');
     Route::delete('address/delete/{id}', [UserAddressController::class, 'destroy'])->middleware('auth:api');
+
+    // Customer Card Routes
+    Route::middleware('auth:api')->group(function () {
+    Route::post('customer/cards', [CustomerCardController::class, 'store']); // Save card
+    Route::get('customer/cards', [CustomerCardController::class, 'index']); // List cards
+    Route::post('customer/cards/use', [CustomerCardController::class, 'useCard']); // Full details
+    Route::delete('customer/cards/{id}', [CustomerCardController::class, 'destroy']);
+    });
+
 
     //Product Routes
     Route::get('products', [ProductController::class, 'index']);
@@ -83,6 +111,8 @@ Route::group(['namespace' => 'api', 'prefix' => 'v1'], function () {
     Route::post('product/update/{id}', [ProductController::class, 'update'])->middleware('auth:api');
     Route::delete('product/delete/{id}', [ProductController::class, 'destroy'])->middleware('auth:api');
     Route::get('products/cat/{id}', [ProductController::class, 'destroy'])->middleware('auth:api');
+    Route::get('/products/category/{id}', [ProductController::class, 'productsByCategory']);
+    Route::get('/products/slug/{slug}', [ProductController::class, 'productBySlug']);
 
 
     //Product Category routes
@@ -195,15 +225,51 @@ Route::group(['namespace' => 'api', 'prefix' => 'v1'], function () {
     Route::get('plans', [\App\Http\Controllers\Api\PlansController::class, 'plans']);
     Route::get('plans/{type}', [\App\Http\Controllers\Api\PlansController::class, 'plan_type']);
     Route::get('plan/{id}', [\App\Http\Controllers\Api\PlansController::class, 'plan_by_id']); 
-    
+    Route::get('/plan/slug/{slug}', [App\Http\Controllers\Api\PlansController::class, 'plan_by_slug']);
+
     //Plan_type
     Route::post('plan_type/create', [\App\Http\Controllers\Api\PlanTypeController::class, 'create'])->middleware(['auth:api', 'admin_only']);
     Route::post('plan_type/update/{id}', [\App\Http\Controllers\Api\PlanTypeController::class, 'update'])->middleware(['auth:api', 'admin_only']);
     Route::delete('plan_type/delete/{id}', [\App\Http\Controllers\Api\PlanTypeController    ::class, 'delete'])->middleware(['auth:api', 'admin_only']);
     Route::get('plan_types', [\App\Http\Controllers\Api\PlanTypeController::class, 'plan_types']);
     Route::get('plan_types/{id}', [\App\Http\Controllers\Api\PlanTypeController::class, 'plan_types_by_id']); 
+
+    // Coupons
+    Route::get('coupons', [\App\Http\Controllers\Api\CouponController::class, 'index'])->middleware('auth:api');
+    Route::get('coupon/{id}', [\App\Http\Controllers\Api\CouponController::class, 'show'])->middleware('auth:api');
+    Route::get('coupon/name/{name}', [\App\Http\Controllers\Api\CouponController::class, 'getByName']);
+    Route::post('coupon/create', [\App\Http\Controllers\Api\CouponController::class, 'store'])->middleware('auth:api');
+    Route::post('coupon/update/{id}', [\App\Http\Controllers\Api\CouponController::class, 'update'])->middleware('auth:api');
+    Route::delete('coupon/delete/{id}', [\App\Http\Controllers\Api\CouponController::class, 'destroy'])->middleware('auth:api');
+    
+    // Apply coupon endpoint
+    Route::post('apply-coupon', [CouponController::class, 'apply']);
+    
+    // BqOrders Routes
+    Route::prefix('bqorders')->group(function () {
+    Route::post('/', [BqOrderController::class, 'store']);
+    Route::get('/', [BqOrderController::class, 'index']);
+    Route::get('/{bqorder}', [BqOrderController::class, 'show']);
 });
 
+Route::post('/animal-partnership', [AnimalPartnershipController::class, 'store']);
+Route::post('/switch-save', [\App\Http\Controllers\Api\SwitchSaveController::class, 'store']);
+Route::post('/postal-service-workers', [PostalServiceWorkerController::class, 'store']);
+Route::post('/animal-worker-registration', [AnimalWorkerRegistrationController::class, 'store']);
+Route::post('/subscribe', [SubscriberController::class, 'subscribe']);
+Route::post('/partner-with-us-form', [PartnerWithUsFormController::class, 'store']);
+Route::post('/become-affiliate-form', [BecomeAffiliateFormController::class, 'store']);
+Route::post('/become-retailer-form', [BecomeRetailerFormController::class, 'store']);
+Route::post('/collage-student-discount-form', [StudentDiscountFormController::class, 'store']);
+Route::post('/military-discount-form', [MilitaryDiscountFormController::class, 'store']);
+Route::post('/black-friday-form', [BlackFridayFormController::class, 'store']);
+Route::get('/search', [SearchController::class, 'search']);
 
+Route::get('/posts', [PostController::class, 'index']);
+Route::get('/posts/{slug}', [PostController::class, 'show']);
 
+Route::post('/webhooks/stripe', [StripeWebhookController::class, 'handle']);
 
+Route::post('/music-hub-registration', [MusicHubController::class, 'store']);
+
+});

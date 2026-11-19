@@ -13,6 +13,8 @@ class CartResource extends Resource
 {
     protected static ?string $model = Cart::class;
     protected static ?string $navigationIcon = 'heroicon-o-shopping-cart';
+    protected static ?string $navigationGroup = 'Store';
+    protected static ?string $navigationLabel = 'Carts';
 
     public static function table(Tables\Table $table): Tables\Table
     {

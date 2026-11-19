@@ -11,40 +11,59 @@ use Mail;
 class ContactController extends Controller
 {
     public function ContactusPost(Request $request)
-{
-    // Validate request data
-    $this->validate($request, [
-        'name' => 'required',
-        'email' => 'required|email',
-        'phone' => 'required',
-        'message' => 'required'
-    ]);
+    {
+        $data = $request->validate([
+            'name'    => 'required|string|max:255',
+            'email'   => 'required|email|max:255',
+            'phone'   => 'nullable|string|max:50',
+            'message' => 'nullable|string|max:5000',
+        ]);
 
-    // Save contact form data to database
-    Contact::create($request->all());
+        // Extra fields from other forms (e.g. Music & Events Perk) are added to the message
+        $extra = collect($request->except(['name', 'email', 'phone', 'message', '_token']))
+            ->filter(fn ($v) => $v !== null && $v !== '')
+            ->map(function ($v, $k) {
+                $label = ucfirst(str_replace(['_', '-'], ' ', $k));
+                if (is_bool($v)) {
+                    $v = $v ? 'Yes' : 'No';
+                } elseif (is_array($v)) {
+                    $v = json_encode($v);
+                }
+                return "{$label}: {$v}";
+            })
+            ->implode("\n");
 
-    // Prepare email data
-    $data = [
-        'name' => $request->get('name'),
-        'email' => $request->get('email'),
-        'phone' => $request->get('phone'),
-        'user_message' => $request->get('message')
-    ];
+        $message = trim(($data['message'] ?? '') . ($extra !== '' ? "\n\n" . $extra : ''));
 
-    // Send mail to admin and user
-    Mail::send('emails.contact-email', $data, function ($message) use ($request) {
-        $message->from('info@zoikomobile.com', 'Zoiko Group');
-        $message->to('info@zoikomobile.com', 'Admin')
-                ->cc($request->get('email')) // Send a copy to the user
-                ->subject('Contact Us Message');
-    });
+        $contact = Contact::create([
+            'name'    => $data['name'],
+            'email'   => $data['email'],
+            'phone'   => $data['phone'] ?? '',
+            'message' => $message,
+        ]);
 
-    // Return success response
-    return response()->json([
-        'success' => true,
-        'message' => 'Thanks for contacting us. Your message has been sent successfully!'
-    ], 200);
-}
+        try {
+            Mail::send('emails.contact-email', [
+                'name'         => $data['name'],
+                'email'        => $data['email'],
+                'phone'        => $data['phone'] ?? 'Not provided',
+                'user_message' => $message,
+            ], function ($mail) use ($data) {
+                $mail->from('info@zoikomobile.com', 'Zoiko Group');
+                $mail->to('info@zoikomobile.com', 'Admin')
+                     ->cc($data['email'])
+                     ->replyTo($data['email'], $data['name'])
+                     ->subject('Contact Us Message');
+            });
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Contact-us email failed: ' . $e->getMessage(), ['contact_id' => $contact->id]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Thanks for contacting us.',
+        ], 200);
+    }
 
 
     public function get_messages()

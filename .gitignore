@@ -19,3 +19,8 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+# Server-generated / local-only files
+/public/storage
+/bootstrap/cache/*.php
+*.php-*
+*.sql

@@ -12,37 +12,51 @@ class Plan extends Model
     protected $table = 'plans';
 
     protected $fillable = [
-        'plan_type',
+        'bq_id',
+        'plan_type_id',
+        'plan_type', // slug of the plan type
         'title',
+        'slug',
         'sub_title',
         'tag',
         'price',
+        'sale_price',
         'currency',
         'duration_type',
         'duration_value',
         'features',
         'status',
         'order',
+        'image_url',
+        'featured_image',
+        'meta_title',
+        'meta_slug',
+        'meta_description',
     ];
 
     protected $casts = [
         'features' => 'array',
-        'price'    => 'decimal:2',
+        'price' => 'decimal:2',
+        'duration_value' => 'string', // store as comma-separated string
     ];
 
-    /**
-     * Scope for prepaid plans.
-     */
-    public function scopePrepaid($query)
+    public function planType()
     {
-        return $query->where('plan_type', 'prepaid');
+        return $this->belongsTo(PlanType::class, 'plan_type_id');
     }
 
-    /**
-     * Scope for postpaid plans.
-     */
-    public function scopePostpaid($query)
+    // Accessor for plan_type slug
+    public function getPlanTypeSlugAttribute()
     {
-        return $query->where('plan_type', 'postpaid');
+        return $this->planType?->slug ?? $this->plan_type;
+    }
+
+    public function getFeaturesListAttribute()
+    {
+        if (!is_array($this->features)) {
+            return [];
+        }
+
+        return collect($this->features)->map(fn($feature) => $feature['text'] ?? '')->toArray();
     }
 }

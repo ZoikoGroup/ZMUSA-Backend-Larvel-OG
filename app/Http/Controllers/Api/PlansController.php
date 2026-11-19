@@ -31,6 +31,24 @@ class PlansController extends Controller
         return response()->json(['success' => true, 'data' => $plan]);
     }
 
+    public function plan_by_slug($slug)
+    {
+        $plan = Plan::where('slug', $slug)->first();
+
+        if (!$plan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Plan not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $plan
+        ]);
+    }
+
+
     public function create(Request $request)
 {
     $validated = $request->validate([

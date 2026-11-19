@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-
+use Illuminate\Support\Facades\Mail;
 use App\Models\EmailTemplate;
 
 /*
@@ -25,3 +25,10 @@ Route::get('/preview-email-template/{id}', function ($id) {
     return view('emails.preview', compact('template'));
 })->name('preview.email');
 
+Route::get('/test-mail', function () {
+    Mail::raw('SMTP is working fine ✅', function ($m) {
+        $m->to('anowar@zoikogroup.com')->subject('Laravel SMTP Live Test');
+    });
+
+    return 'Mail sent successfully ✅';
+});
